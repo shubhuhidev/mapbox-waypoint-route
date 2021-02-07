@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <title>Delivery App</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+    <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js'></script>
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v2.1.0/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v2.1.0/mapbox-gl.css' rel='stylesheet' />
+    <style>
+
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        left: 0;
+        
+      }
+
+      .truck {
+  margin: -10px -10px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #3887be;
+  pointer-events: none;
+}
+
+.mapboxgl-popup {
+  max-width: 200px;
+}
+
+.mapboxgl-popup-content {
+  text-align: center;
+  font-family: 'Open Sans', sans-serif;
+}
+
+.marker {
+  background-size: cover;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+    </style>
+  </head>
+  <body>
+    <div id='map' class='contain'></div>
+   <script>
+      var truckLocation = [-83.19874340820398,42.40535028620175];
+      var warehouseLocation = [-83.083, 42.363];
+      var lastQueryTime = 0;
+      var lastAtRestaurant = 0;
+      var keepTrack = [];
+      var currentSchedule = [];
+      var currentRoute = null;
+      var pointHopper = {};
+      var pause = true;
+      var speedFactor = 50;
+      var shipperSet = false;
+    var truckMarker;
+    var dropofMarker;
+      // Add your access token
+      mapboxgl.accessToken = 'pk.eyJ1Ijoic2h1Ymh1MTFoaSIsImEiOiJja2tza2phdmQwaTNoMnZvaXJrczBoODBqIn0.rlKtKeUZavBHMVLRWPZwUQ';
+
+
+function getRandomColor() {
+  var letters = '0123456789ABCDEF';
+  var color = '#';
+  for (var i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+
+      // Initialize a map
+      var map = new mapboxgl.Map({
+        container: 'map', // container id
+        style: 'mapbox://styles/mapbox/light-v10', // stylesheet location
+        center: truckLocation, // starting position
+        zoom: 12 // starting zoom
+      });
+
+// Now lets get first two cordinates by name by using geoencoding
+ 
+  function  AddshipperLocationsinpath(points){
+  console.log(points);
+  }
+// now each point will going to have tohere
+
+
+function ApplyShipper(shipperId){
+ shipperSet=true;
+ alert("Tap Tp map to the place to add shipper");
+console.log(shipperId);
+
+}
+
+
+
+      map.on('load', function() {
+  var marker = document.createElement('div');
+  marker.classList = 'truck';
+
+  // Create a new marker
+   truckMarker = new mapboxgl.Marker()
+    .setLngLat(truckLocation)
+    .addTo(map);
+
+    map.addLayer({
+  id: 'warehouse',
+  type: 'circle',
+  source: {
+    data: warehouse,
+    type: 'geojson'
+  },
+  paint: {
+    'circle-radius': 20,
+    'circle-color': 'white',
+    'circle-stroke-color': 'green',
+    'circle-stroke-width': 3
+  }
+});
+
+// Create a symbol layer on top of circle layer
+map.addLayer({
+  id: 'warehouse-symbol',
+  type: 'symbol',
+  source: {
+    data: warehouse,
+    type: 'geojson'
+  },
+  layout: {
+    'icon-image': 'grocery-15',
+    'icon-size': 1
+  },
+  paint: {
+    'text-color': '#3887be'
+  }
+});
+
+
+map.addLayer({
+  id: 'dropoffs-symbol',
+  type: 'symbol',
+  source: {
+    data: dropoffs,
+    type: 'geojson'
+  },
+  layout: {
+    'icon-allow-overlap': true,
+    'icon-ignore-placement': true,
+    'icon-image': 'marker-15',
+    'icon-size': 2,
+
+  }
+});
+
+map.on('click', function(e) {
+  // When the map is clicked, add a new drop-off point
+  // and update the `dropoffs-symbol` layer
+console.log(shipperSet);
+  if (shipperSet) {
+  newDropoff(map.unproject(e.point),shipperSet);
+  updateDropoffs(dropoffs);
+  AddshipperLocationsinpath(e.point);
+}
+});
+
+
+
+map.addSource('route', {
+  type: 'geojson',
+  data: nothing
+});
+
+map.addLayer({
+  id: 'routeline-active',
+  type: 'line',
+  source: 'route',
+  layout: {
+    'line-join': 'round',
+    'line-cap': 'round'
+  },
+  paint: {
+    'line-color': getRandomColor(),
+    'line-width': [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      12, 3,
+      22, 12
+    ]
+  }
+}, 'waterway-label');
+
+
+
+map.addLayer({
+  id: 'routearrows',
+  type: 'symbol',
+  source: 'route',
+  layout: {
+    'symbol-placement': 'line',
+    'text-field': '▶',
+    'text-size': [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      12, 24,
+      22, 60
+    ],
+    'symbol-spacing': [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      12, 30,
+      22, 160
+    ],
+    'text-keep-upright': false
+  },
+  paint: {
+    'text-color': getRandomColor(),
+    'text-halo-color': 'hsl(55, 11%, 96%)',
+    'text-halo-width': 3
+  }
+}, 'waterway-label');
+
+});
+
+
+var warehouse = turf.featureCollection([turf.point(warehouseLocation)]);
+
+var dropoffs = turf.featureCollection([]);
+
+function newDropoff(coords,shipperSet) {
+  // Store the clicked point as a new GeoJSON feature with
+  // two properties: `orderTime` and `key`
+  var pt = turf.point(
+    [coords.lng, coords.lat],
+    {
+      orderTime: Date.now(),
+      key: Math.random()
+    }
+  );
+
+
+  dropofMarker = new mapboxgl.Marker()
+    .setLngLat([coords.lng, coords.lat])
+    .setPopup(new mapboxgl.Popup({ offset: 25 }) // add popups
+    .setHTML('<h3>' + shipperSet + '</h3><p>' + '</p>'))
+    .addTo(map);
+
+  dropoffs.features.push(pt);
+  pointHopper[pt.properties.key] = pt;
+
+  // Make a request to the Optimization API
+  $.ajax({
+    method: 'GET',
+    url: assembleQueryURL(),
+  }).done(function(data) {
+    // Create a GeoJSON feature collection
+    var routeGeoJSON = turf.featureCollection([turf.feature(data.routes[0].geometry)]);
+
+    // If there is no route provided, reset
+    if (!data.routes[0]) {
+      routeGeoJSON = nothing;
+    } else {
+      // Update the `route` source by getting the route source
+      // and setting the data equal to routeGeoJSON
+      map.getSource('route')
+        .setData(routeGeoJSON);
+      }
+
+    if (data.waypoints.length === 12) {
+      window.alert('Maximum number of points reached. Read more at docs.mapbox.com/api/navigation/#optimization.');
+    }
+  });
+}
+
+function updateDropoffs(geojson) {
+  map.getSource('dropoffs-symbol')
+    .setData(geojson);
+}
+
+function assembleQueryURL() {
+
+// Store the location of the truck in a variable called coordinates
+var coordinates = [truckLocation];
+var distributions = [];
+keepTrack = [truckLocation];
+
+// Create an array of GeoJSON feature collections for each point
+var restJobs = objectToArray(pointHopper);
+
+// If there are any orders from this restaurant
+if (restJobs.length > 0) {
+
+  // Check to see if the request was made after visiting the restaurant
+  var needToPickUp = restJobs.filter(function(d, i) {
+    return d.properties.orderTime > lastAtRestaurant;
+  }).length > 0;
+
+  // If the request was made after picking up from the restaurant,
+  // Add the restaurant as an additional stop
+  if (needToPickUp) {
+    var restaurantIndex = coordinates.length;
+    // Add the restaurant as a coordinate
+    // push the restaurant itself into the array
+    keepTrack.push(pointHopper.warehouse);
+  }
+
+  console.log(restJobs);
+  restJobs.forEach(function(d, i) {
+    // Add dropoff to list
+    keepTrack.push(d);
+    
+    coordinates.push(d.geometry.coordinates);
+    // if order not yet picked up, add a reroute
+    if (needToPickUp && d.properties.orderTime > lastAtRestaurant) {
+   distributions.push(restaurantIndex + ',' + (coordinates.length - 1));
+   }
+  });
+}
+
+let index =  coordinates.indexOf(warehouseLocation);
+coordinates.splice(index,0);
+coordinates.push(warehouseLocation);
+   
+
+// Set the profile to `driving`
+// Coordinates will include the current location of the truck,
+return 'https://api.tiles.mapbox.com/v4/directions/mapbox.driving/'+coordinates.join(';')+'.json?instructions=html&geometry=geojson&access_token=' + mapboxgl.accessToken;
+
+} 
+
+function objectToArray(obj) {
+var keys = Object.keys(obj);
+var routeGeoJSON = keys.map(function(key) {
+  return obj[key];
+});
+return routeGeoJSON;
+}
+
+
+var nothing = turf.featureCollection([]);
+//Now for shipper-agency we will going to use geoloaction for the case of ponits in which location is defined which we can use lotitude and logitude 
+
+</script>
+
+
+ <div id="shippers" style="position: relative;">
+  <button class="btn btn-success" onclick="ApplyShipper('shipper1')">Shipper1</button>
+  <button class="btn btn-primary">Add Shipper+</button>
+
+ </div>
+
+</body>
+</html>
